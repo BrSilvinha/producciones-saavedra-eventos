@@ -6,7 +6,7 @@ tunnels:
   backend:
     proto: http
     addr: 5000
-    
+
   frontend:
     proto: http
     addr: 3000
