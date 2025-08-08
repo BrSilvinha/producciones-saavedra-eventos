@@ -1,7 +1,7 @@
 // frontend/src/lib/apiConfig.ts
 
 // URL base de la API - ACTUALÍZALA CON TU URL ACTUAL DE NGROK
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api'
 
 // Headers estándar que funcionan con ngrok
 export const API_HEADERS = {

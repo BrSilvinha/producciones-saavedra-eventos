@@ -13,10 +13,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
-  CogIcon,
-  ArrowLeftIcon
+  CogIcon
 } from '@heroicons/react/24/outline'
-import { apiEndpoints, handleApiError } from '@/lib/apiConfig'
 
 interface Event {
   id: string
@@ -79,29 +77,24 @@ export default function TicketsPage() {
   const loadEvents = async () => {
     try {
       setLoading(true)
-      setError(null)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      const response = await fetch(`${apiUrl}/events`)
       
-      console.log('🔍 Loading events for tickets...')
-      const response = await apiEndpoints.getEvents()
-      
-      if (response.ok && response.data.success) {
-        const availableEvents = response.data.data?.filter((event: Event) => 
-          event.status === 'active' || event.status === 'draft'
-        ) || []
-        
-        console.log('✅ Available events loaded:', availableEvents.length)
-        setEvents(availableEvents)
-        
-        if (availableEvents.length > 0 && !selectedEvent) {
-          setSelectedEvent(availableEvents[0].id)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          const activeEvents = data.data?.filter((event: Event) => 
+            event.status === 'active' || event.status === 'draft'
+          ) || []
+          setEvents(activeEvents)
+          if (activeEvents.length > 0 && !selectedEvent) {
+            setSelectedEvent(activeEvents[0].id)
+          }
         }
-      } else {
-        console.warn('⚠️ Events API returned error:', response.data)
-        setError(response.data.message || 'Error al cargar eventos')
       }
-    } catch (err: any) {
-      console.error('❌ Error loading events:', err)
-      setError(handleApiError(err))
+    } catch (err) {
+      setError('Error al cargar eventos')
+      console.error('Error loading events:', err)
     } finally {
       setLoading(false)
     }
@@ -109,19 +102,17 @@ export default function TicketsPage() {
 
   const loadTicketTypes = async (eventId: string) => {
     try {
-      console.log('🔍 Loading ticket types for event:', eventId)
-      const response = await apiEndpoints.getTicketTypes(eventId)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      const response = await fetch(`${apiUrl}/ticket-types/event/${eventId}`)
       
-      if (response.ok && response.data.success) {
-        console.log('✅ Ticket types loaded:', response.data.data?.length || 0)
-        setTicketTypes(response.data.data || [])
-      } else {
-        console.warn('⚠️ Ticket types API returned error:', response.data)
-        setTicketTypes([])
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setTicketTypes(data.data || [])
+        }
       }
-    } catch (err: any) {
-      console.error('❌ Error loading ticket types:', err)
-      setTicketTypes([])
+    } catch (err) {
+      console.error('Error loading ticket types:', err)
     }
   }
 
@@ -132,27 +123,37 @@ export default function TicketsPage() {
     }
 
     try {
-      console.log('🔄 Creating ticket type:', newTicketType)
-      const response = await apiEndpoints.createTicketType({
-        eventId: selectedEvent,
-        name: newTicketType.name,
-        price: newTicketType.price,
-        quantity: newTicketType.quantity
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      const response = await fetch(`${apiUrl}/ticket-types`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: selectedEvent,
+          name: newTicketType.name,
+          price: newTicketType.price,
+          quantity: newTicketType.quantity
+        })
       })
 
-      if (response.ok && response.data.success) {
-        console.log('✅ Ticket type created successfully')
-        alert('✅ Tipo de ticket creado exitosamente')
-        setShowCreateTypeModal(false)
-        setNewTicketType({ name: '', price: 0, quantity: 1 })
-        loadTicketTypes(selectedEvent)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          alert('✅ Tipo de ticket creado exitosamente')
+          setShowCreateTypeModal(false)
+          setNewTicketType({ name: '', price: 0, quantity: 1 })
+          loadTicketTypes(selectedEvent)
+        } else {
+          alert(`❌ Error: ${data.message}`)
+        }
       } else {
-        console.error('❌ Error creating ticket type:', response.data)
-        alert(`❌ Error: ${response.data.message || 'Error al crear tipo de ticket'}`)
+        const errorData = await response.json()
+        alert(`❌ Error: ${errorData.message || 'Error al crear tipo de ticket'}`)
       }
-    } catch (err: any) {
-      console.error('❌ Error creating ticket type:', err)
+    } catch (err) {
       alert('❌ Error de conexión')
+      console.error('Error creating ticket type:', err)
     }
   }
 
@@ -161,28 +162,38 @@ export default function TicketsPage() {
 
     try {
       setGenerating(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
       
-      console.log('🔄 Generating tickets:', { ticketTypeId, quantity })
-      const response = await apiEndpoints.generateTickets({
-        eventId: selectedEvent,
-        ticketTypeId,
-        quantity
+      const response = await fetch(`${apiUrl}/tickets/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: selectedEvent,
+          ticketTypeId,
+          quantity
+        })
       })
 
-      if (response.ok && response.data.success) {
-        console.log('✅ Tickets generated successfully')
-        setGeneratedTickets(response.data.data.qrCodes || [])
-        setShowQRModal(true)
-        alert(`✅ ${quantity} tickets generados exitosamente`)
-        // Recargar tipos de tickets para actualizar disponibilidad
-        loadTicketTypes(selectedEvent)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setGeneratedTickets(data.data.qrCodes || [])
+          setShowQRModal(true)
+          alert(`✅ ${quantity} tickets generados exitosamente`)
+          // Recargar tipos de tickets para actualizar disponibilidad
+          loadTicketTypes(selectedEvent)
+        } else {
+          alert(`❌ Error: ${data.message}`)
+        }
       } else {
-        console.error('❌ Error generating tickets:', response.data)
-        alert(`❌ Error: ${response.data.message || 'Error al generar tickets'}`)
+        const errorData = await response.json()
+        alert(`❌ Error: ${errorData.message || 'Error al generar tickets'}`)
       }
-    } catch (err: any) {
-      console.error('❌ Error generating tickets:', err)
+    } catch (err) {
       alert('❌ Error de conexión al generar tickets')
+      console.error('Error generating tickets:', err)
     } finally {
       setGenerating(false)
     }
@@ -205,26 +216,36 @@ export default function TicketsPage() {
 
     try {
       setGenerating(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
       
-      console.log('🔄 Bulk generating tickets:', requests)
-      const response = await apiEndpoints.bulkGenerateTickets({
-        eventId: selectedEvent,
-        ticketRequests: requests
+      const response = await fetch(`${apiUrl}/tickets/bulk-generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: selectedEvent,
+          ticketRequests: requests
+        })
       })
 
-      if (response.ok && response.data.success) {
-        console.log('✅ Bulk tickets generated successfully')
-        setGeneratedTickets(response.data.data.qrCodes || [])
-        setShowQRModal(true)
-        alert(`✅ ${response.data.data.qrCodes?.length || 0} tickets generados exitosamente`)
-        loadTicketTypes(selectedEvent)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setGeneratedTickets(data.data.qrCodes || [])
+          setShowQRModal(true)
+          alert(`✅ ${data.data.qrCodes?.length || 0} tickets generados exitosamente`)
+          loadTicketTypes(selectedEvent)
+        } else {
+          alert(`❌ Error: ${data.message}`)
+        }
       } else {
-        console.error('❌ Error in bulk generation:', response.data)
-        alert(`❌ Error: ${response.data.message || 'Error en generación masiva'}`)
+        const errorData = await response.json()
+        alert(`❌ Error: ${errorData.message || 'Error en generación masiva'}`)
       }
-    } catch (err: any) {
-      console.error('❌ Error in bulk generation:', err)
+    } catch (err) {
       alert('❌ Error de conexión')
+      console.error('Error in bulk generation:', err)
     } finally {
       setGenerating(false)
     }
@@ -299,8 +320,10 @@ export default function TicketsPage() {
                 href="/" 
                 className="flex items-center space-x-2 text-blue-600 hover:text-blue-700"
               >
-                <ArrowLeftIcon className="w-5 h-5" />
-                <span className="font-medium">Dashboard</span>
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">PS</span>
+                </div>
+                <span className="font-medium">Volver al Inicio</span>
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div>
@@ -326,18 +349,7 @@ export default function TicketsPage() {
       <main className="container mx-auto px-4 py-8">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-red-800 font-medium">Error al cargar eventos</p>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
-              </div>
-              <button 
-                onClick={loadEvents}
-                className="text-red-600 hover:text-red-700 underline text-sm"
-              >
-                Reintentar
-              </button>
-            </div>
+            <p className="text-red-800">{error}</p>
           </div>
         )}
 
@@ -354,7 +366,7 @@ export default function TicketsPage() {
         ) : (
           <div className="space-y-6">
             {/* Event Selector */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white rounded-xl p-6 shadow-soft">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Seleccionar Evento</h2>
                 {selectedEvent && (
@@ -384,7 +396,7 @@ export default function TicketsPage() {
               <select
                 value={selectedEvent}
                 onChange={(e) => setSelectedEvent(e.target.value)}
-                className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input w-full max-w-md"
               >
                 <option value="">Selecciona un evento</option>
                 {events.map((event) => (
@@ -397,7 +409,7 @@ export default function TicketsPage() {
 
             {/* Ticket Types */}
             {selectedEvent && (
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl p-6 shadow-soft">
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">Tipos de Tickets Disponibles</h2>
                 
                 {ticketTypes.length === 0 ? (
@@ -474,7 +486,7 @@ export default function TicketsPage() {
                               min="1"
                               max={ticketType.available}
                               defaultValue="1"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="input w-full"
                               id={`quantity-${ticketType.id}`}
                             />
                           </div>
@@ -543,7 +555,7 @@ export default function TicketsPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white rounded-xl p-6 shadow-soft">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/scanner" className="btn btn-outline">
@@ -591,7 +603,7 @@ export default function TicketsPage() {
                   type="text"
                   value={newTicketType.name}
                   onChange={(e) => setNewTicketType(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input w-full"
                   placeholder="Ej: VIP, General, Estudiante"
                 />
               </div>
@@ -604,7 +616,7 @@ export default function TicketsPage() {
                   type="number"
                   value={newTicketType.price}
                   onChange={(e) => setNewTicketType(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input w-full"
                   min="0"
                   step="0.01"
                 />
@@ -618,7 +630,7 @@ export default function TicketsPage() {
                   type="number"
                   value={newTicketType.quantity}
                   onChange={(e) => setNewTicketType(prev => ({ ...prev, quantity: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input w-full"
                   min="1"
                 />
               </div>

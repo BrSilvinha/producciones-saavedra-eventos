@@ -2,7 +2,7 @@
 const nextConfig = {
   // Variables de entorno públicas
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api',
     NEXT_PUBLIC_APP_NAME: 'Producciones Saavedra',
     NEXT_PUBLIC_APP_VERSION: '1.0.0',
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || 'development',

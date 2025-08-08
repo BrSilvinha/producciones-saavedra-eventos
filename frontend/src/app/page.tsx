@@ -78,7 +78,7 @@ export default function HomePage() {
   const loadSystemStats = async () => {
     try {
       // Usar fetch simple que sabemos que funciona
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api'
       
       console.log('🔍 Loading stats from:', apiUrl)
       
@@ -394,7 +394,7 @@ export default function HomePage() {
             <div>
               <strong>Backend URL:</strong><br />
               <code className="text-xs bg-white px-2 py-1 rounded">
-                {process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api'}
+                {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api'}
               </code>
             </div>
             <div>

@@ -43,8 +43,8 @@ app.use(cors({
       'http://192.168.1.1:3000',     // Router común
       'http://192.168.0.1:3000',     // Router común alternativo
       'http://10.0.0.1:3000',        // Red local alternativa
-      'https://237af844b109.ngrok-free.app',
-      'https://f6b9099e2000.ngrok-free.app'
+      'http://localhost:5000/api',
+      ''
     ];
     
     // Patrones adicionales para redes locales
