@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast'
 import type { ApiResponse } from '@/types'
 
 // URL exacta que funciona en los tests
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api'
 
 console.log('🌐 API Base URL:', API_BASE_URL)
 

@@ -18,6 +18,7 @@ import {
   ArrowLeftIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline'
+import { apiEndpoints, handleApiError } from '@/lib/apiConfig'
 
 interface Event {
   id: string
@@ -84,22 +85,20 @@ export default function EventosPage() {
     try {
       setLoading(true)
       setError(null)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api'
-      const response = await fetch(`${apiUrl}/events`)
       
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setEvents(data.data || [])
-        } else {
-          setError('Error al cargar eventos')
-        }
+      console.log('🔍 Loading events...')
+      const response = await apiEndpoints.getEvents()
+      
+      if (response.ok && response.data.success) {
+        console.log('✅ Events loaded successfully:', response.data.data?.length || 0)
+        setEvents(response.data.data || [])
       } else {
-        setError(`Error ${response.status}: ${response.statusText}`)
+        console.warn('⚠️ Events API returned error:', response.data)
+        setError(response.data.message || 'Error al cargar eventos')
       }
-    } catch (err) {
-      setError('Error de conexión con el servidor')
-      console.error('Error loading events:', err)
+    } catch (err: any) {
+      console.error('❌ Error loading events:', err)
+      setError(handleApiError(err))
     } finally {
       setLoading(false)
     }
@@ -148,7 +147,6 @@ export default function EventosPage() {
 
     try {
       setCreating(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api'
       
       const eventData = {
         name: createForm.name.trim(),
@@ -164,29 +162,22 @@ export default function EventosPage() {
           }))
       }
 
-      const response = await fetch(`${apiUrl}/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventData)
-      })
+      console.log('🔄 Creating event:', eventData)
+      const response = await apiEndpoints.createEvent(eventData)
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setShowCreateForm(false)
-          resetForm()
-          loadEvents()
-          alert('✅ Evento creado exitosamente')
-        } else {
-          alert(`❌ Error: ${data.message}`)
-        }
+      if (response.ok && response.data.success) {
+        console.log('✅ Event created successfully')
+        setShowCreateForm(false)
+        resetForm()
+        loadEvents()
+        alert('✅ Evento creado exitosamente')
       } else {
-        const errorData = await response.json()
-        alert(`❌ Error: ${errorData.message || 'Error al crear evento'}`)
+        console.error('❌ Error creating event:', response.data)
+        alert(`❌ Error: ${response.data.message || 'Error al crear evento'}`)
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Error creating event:', err)
       alert('❌ Error de conexión al crear evento')
-      console.error('Error creating event:', err)
     } finally {
       setCreating(false)
     }
@@ -194,25 +185,20 @@ export default function EventosPage() {
 
   const updateEventStatus = async (eventId: string, newStatus: 'draft' | 'active' | 'finished') => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api'
-      const response = await fetch(`${apiUrl}/events/${eventId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      })
+      console.log('🔄 Updating event status:', eventId, newStatus)
+      const response = await apiEndpoints.updateEvent(eventId, { status: newStatus })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          loadEvents()
-          alert(`✅ Estado actualizado a: ${getStatusLabel(newStatus)}`)
-        } else {
-          alert(`❌ Error: ${data.message}`)
-        }
+      if (response.ok && response.data.success) {
+        console.log('✅ Event status updated')
+        loadEvents()
+        alert(`✅ Estado actualizado a: ${getStatusLabel(newStatus)}`)
+      } else {
+        console.error('❌ Error updating status:', response.data)
+        alert(`❌ Error: ${response.data.message || 'Error al actualizar estado'}`)
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Error updating status:', err)
       alert('❌ Error de conexión')
-      console.error('Error updating status:', err)
     }
   }
 
@@ -222,23 +208,20 @@ export default function EventosPage() {
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api'
-      const response = await fetch(`${apiUrl}/events/${eventId}`, {
-        method: 'DELETE'
-      })
+      console.log('🔄 Deleting event:', eventId)
+      const response = await apiEndpoints.deleteEvent(eventId)
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          loadEvents()
-          alert('✅ Evento eliminado exitosamente')
-        } else {
-          alert(`❌ Error: ${data.message}`)
-        }
+      if (response.ok && response.data.success) {
+        console.log('✅ Event deleted successfully')
+        loadEvents()
+        alert('✅ Evento eliminado exitosamente')
+      } else {
+        console.error('❌ Error deleting event:', response.data)
+        alert(`❌ Error: ${response.data.message || 'Error al eliminar evento'}`)
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Error deleting event:', err)
       alert('❌ Error de conexión')
-      console.error('Error deleting event:', err)
     }
   }
 
@@ -415,19 +398,17 @@ export default function EventosPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <XMarkIcon className="h-5 w-5 text-red-400" />
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-red-800 font-medium">Error al cargar eventos</p>
+                <p className="text-red-700 text-sm mt-1">{error}</p>
               </div>
-              <div className="ml-3">
-                <p className="text-red-800">{error}</p>
-                <button 
-                  onClick={loadEvents}
-                  className="mt-2 text-red-600 hover:text-red-700 underline"
-                >
-                  Reintentar
-                </button>
-              </div>
+              <button 
+                onClick={loadEvents}
+                className="text-red-600 hover:text-red-700 underline text-sm"
+              >
+                Reintentar
+              </button>
             </div>
           </div>
         )}

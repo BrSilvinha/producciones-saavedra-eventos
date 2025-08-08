@@ -28,8 +28,8 @@ const startServer = async () => {
       console.log(`📊 API Health Check: http://localhost:${PORT}/api/health`);
       console.log('🚀 ======================================');
       console.log('🌍 NGROK DETECTADO:');
-      console.log('   Backend disponible en: https://b20e100fb88b.ngrok-free.app');
-      console.log('   API Health: https://b20e100fb88b.ngrok-free.app/api/health');
+      console.log('   Backend disponible en: https://237af844b109.ngrok-free.app');
+      console.log('   API Health: https://237af844b109.ngrok-free.app/api/health');
       console.log('🚀 ======================================');
       
       // Mostrar rutas disponibles

@@ -2,7 +2,7 @@
 const nextConfig = {
   // Variables de entorno públicas
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://b20e100fb88b.ngrok-free.app/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://237af844b109.ngrok-free.app/api',
     NEXT_PUBLIC_APP_NAME: 'Producciones Saavedra',
     NEXT_PUBLIC_APP_VERSION: '1.0.0',
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || 'development',
@@ -14,7 +14,7 @@ const nextConfig = {
       'localhost', 
       'cloudinary.com',
       '*.ngrok-free.app',
-      'b20e100fb88b.ngrok-free.app',
+      '237af844b109.ngrok-free.app',
       '192.168.1.52',
     ],
     formats: ['image/webp', 'image/avif'],

@@ -4,7 +4,7 @@ export function middleware(request: NextRequest) {
   // Solo aplicar para rutas de API
   if (request.nextUrl.pathname.startsWith('/api/')) {
     // Crear la URL de destino
-    const ngrokUrl = 'https://b20e100fb88b.ngrok-free.app'
+    const ngrokUrl = 'https://237af844b109.ngrok-free.app'
     const targetUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, ngrokUrl)
     
     // Crear headers para ngrok
