@@ -64,6 +64,11 @@ export default function ScannerPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown')
   const [lastScanTime, setLastScanTime] = useState<number>(0)
+  const [scanCount, setScanCount] = useState(0)
+  const [cameraReady, setCameraReady] = useState(false)
+  const [videoLoaded, setVideoLoaded] = useState(false)
+  const [videoPlaying, setVideoPlaying] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string>('Inicializando...')
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -86,24 +91,16 @@ export default function ScannerPage() {
     }
   }, [selectedEvent, events])
 
+  const updateDebug = (message: string) => {
+    console.log(`🐛 ${message}`)
+    setDebugInfo(message)
+  }
+
   const checkCameraPermissions = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setCameraError('Tu navegador no soporta acceso a la cámara')
         return
-      }
-
-      if ('permissions' in navigator) {
-        try {
-          const permission = await navigator.permissions.query({ name: 'camera' as PermissionName })
-          setPermissionStatus(permission.state as any)
-          
-          permission.addEventListener('change', () => {
-            setPermissionStatus(permission.state as any)
-          })
-        } catch (err) {
-          console.log('No se pudo verificar permisos de cámara')
-        }
       }
     } catch (err) {
       console.error('Error checking camera permissions:', err)
@@ -115,7 +112,14 @@ export default function ScannerPage() {
       setLoading(true)
       setError(null)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
-      const response = await fetch(`${apiUrl}/events`)
+      
+      const response = await fetch(`${apiUrl}/events`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
       
       if (response.ok) {
         const data = await response.json()
@@ -137,133 +141,182 @@ export default function ScannerPage() {
     }
   }
 
-  const requestCameraPermission = async () => {
-    try {
-      setCameraError(null)
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      })
-      
-      stream.getTracks().forEach(track => track.stop())
-      setPermissionStatus('granted')
-      
-      return true
-    } catch (err: any) {
-      console.error('Error requesting camera permission:', err)
-      
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Permisos de cámara denegados. Habilita el acceso a la cámara en tu navegador.')
-        setPermissionStatus('denied')
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No se encontró ninguna cámara en tu dispositivo.')
-      } else if (err.name === 'NotReadableError') {
-        setCameraError('La cámara está siendo usada por otra aplicación.')
-      } else {
-        setCameraError(`Error de cámara: ${err.message}`)
-      }
-      
-      return false
-    }
-  }
-
   const startCamera = async () => {
     if (!selectedEvent) {
-      alert('Por favor selecciona un evento primero')
+      alert('⚠️ Por favor selecciona un evento primero')
       return
     }
 
     try {
       setCameraError(null)
+      setCameraReady(false)
+      setVideoLoaded(false)
+      setVideoPlaying(false)
+      updateDebug('🎬 Iniciando cámara...')
       
-      if (permissionStatus !== 'granted') {
-        const hasPermission = await requestCameraPermission()
-        if (!hasPermission) {
-          return
+      // ✅ STOP COMPLETE - Limpieza total
+      if (cameraStream) {
+        updateDebug('🛑 Deteniendo stream anterior...')
+        cameraStream.getTracks().forEach(track => {
+          track.stop()
+          console.log(`🛑 Track ${track.kind} stopped`)
+        })
+        setCameraStream(null)
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = null
+          videoRef.current.load()
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Esperar más tiempo
       }
 
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 },
-          frameRate: { ideal: 15, max: 30 }
-        },
-        audio: false
-      }
-
+      updateDebug('📹 Solicitando permiso de cámara...')
+      
+      // ✅ CONFIGURACIÓN MUY BÁSICA
       let stream: MediaStream
+      
       try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints)
-      } catch (err) {
-        console.log('Fallback to basic camera config')
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { min: 320 },
-            height: { min: 240 }
+            width: 640,
+            height: 480,
+            facingMode: 'environment'
           },
+          audio: false
+        })
+        updateDebug('✅ Stream con configuración básica obtenido')
+      } catch (err) {
+        updateDebug('🔄 Fallback a configuración mínima...')
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
           audio: false
         })
       }
 
+      console.log('✅ Stream details:', {
+        id: stream.id,
+        active: stream.active,
+        tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState }))
+      })
+      
+      setCameraStream(stream)
+      updateDebug('💾 Stream guardado en state')
+
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
+        const video = videoRef.current
+        updateDebug('🎥 Configurando video element...')
         
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current.play().catch(err => {
-              console.error('Error playing video:', err)
-              setCameraError('Error al reproducir el video de la cámara')
+        // ✅ CONFIGURACIÓN FORZADA EXTREMA
+        video.muted = true
+        video.playsInline = true
+        video.autoplay = true
+        video.controls = false
+        
+        // ✅ EVENT LISTENERS COMPLETOS
+        const handleLoadStart = () => {
+          updateDebug('📺 Video: loadstart')
+        }
+        
+        const handleLoadedMetadata = () => {
+          updateDebug(`📺 Video: metadata loaded (${video.videoWidth}x${video.videoHeight})`)
+          setVideoLoaded(true)
+        }
+        
+        const handleCanPlay = () => {
+          updateDebug('📺 Video: can play')
+          setCameraReady(true)
+          
+          // ✅ FORZAR PLAY INMEDIATO
+          video.play()
+            .then(() => {
+              updateDebug('▶️ Video: playing successfully')
+              setVideoPlaying(true)
+              setIsScanning(true)
+              startQRScanning()
             })
+            .catch(err => {
+              updateDebug(`❌ Play error: ${err.message}`)
+              setCameraError('Error al reproducir video')
+            })
+        }
+        
+        const handlePlay = () => {
+          updateDebug('📺 Video: play event')
+          setVideoPlaying(true)
+        }
+        
+        const handleError = (e: any) => {
+          updateDebug(`❌ Video error: ${e.type}`)
+          setCameraError('Error en elemento de video')
+        }
+
+        // Agregar listeners
+        video.addEventListener('loadstart', handleLoadStart)
+        video.addEventListener('loadedmetadata', handleLoadedMetadata)
+        video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('play', handlePlay)
+        video.addEventListener('error', handleError)
+        
+        // ✅ ASIGNAR STREAM Y FORZAR CARGA
+        updateDebug('🔗 Asignando stream al video...')
+        video.srcObject = stream
+        
+        // ✅ FORZAR LOAD
+        video.load()
+        
+        // ✅ INTENTOS MÚLTIPLES DE PLAY
+        setTimeout(() => {
+          if (video.readyState >= 1) {
+            updateDebug('🔄 Intento de play diferido 1s')
+            video.play().catch(err => console.log('Play attempt 1s failed:', err))
           }
-        }
-
-        videoRef.current.oncanplay = () => {
-          console.log('✅ Video can play - dimensions:', {
-            videoWidth: videoRef.current?.videoWidth,
-            videoHeight: videoRef.current?.videoHeight
-          })
-        }
-
-        videoRef.current.onerror = (err) => {
-          console.error('Video error:', err)
-          setCameraError('Error en el elemento de video')
+        }, 1000)
+        
+        setTimeout(() => {
+          if (video.readyState >= 2) {
+            updateDebug('🔄 Intento de play diferido 2s')
+            video.play().catch(err => console.log('Play attempt 2s failed:', err))
+          }
+        }, 2000)
+        
+        // Cleanup function para remover listeners
+        return () => {
+          video.removeEventListener('loadstart', handleLoadStart)
+          video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+          video.removeEventListener('canplay', handleCanPlay)
+          video.removeEventListener('play', handlePlay)
+          video.removeEventListener('error', handleError)
         }
       }
-
-      setCameraStream(stream)
-      setIsScanning(true)
-      
-      // Iniciar escaneo cada 500ms para mejor detección
-      scanIntervalRef.current = setInterval(scanQRFromVideo, 500)
-      
-      console.log('✅ Camera started successfully')
       
     } catch (err: any) {
-      console.error('Error starting camera:', err)
-      
-      if (err.name === 'NotAllowedError') {
-        setCameraError('❌ Permisos de cámara denegados. Ve a la configuración de tu navegador y habilita el acceso a la cámara para este sitio.')
-        setPermissionStatus('denied')
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('❌ No se encontró ninguna cámara en tu dispositivo.')
-      } else if (err.name === 'NotReadableError') {
-        setCameraError('❌ La cámara está siendo usada por otra aplicación. Cierra otras aplicaciones que puedan estar usando la cámara.')
-      } else if (err.name === 'OverconstrainedError') {
-        setCameraError('❌ La cámara no cumple con los requisitos solicitados.')
-      } else {
-        setCameraError(`❌ Error inesperado: ${err.message}`)
-      }
+      console.error('❌ Error starting camera:', err)
+      updateDebug(`❌ Error: ${err.message}`)
+      handleCameraError(err)
+    }
+  }
+
+  const handleCameraError = (err: any) => {
+    if (err.name === 'NotAllowedError') {
+      setCameraError('🚫 Permisos denegados. Habilita la cámara en tu navegador.')
+      setPermissionStatus('denied')
+    } else if (err.name === 'NotFoundError') {
+      setCameraError('📷 No se encontró cámara en tu dispositivo.')
+    } else if (err.name === 'NotReadableError') {
+      setCameraError('📱 Cámara ocupada por otra aplicación.')
+    } else {
+      setCameraError(`❌ Error: ${err.message}`)
     }
   }
 
   const stopCamera = () => {
+    updateDebug('🛑 Deteniendo cámara...')
+    
     if (cameraStream) {
       cameraStream.getTracks().forEach(track => {
         track.stop()
-        console.log('🛑 Camera track stopped:', track.kind)
+        console.log(`🛑 Track detenido: ${track.kind}`)
       })
       setCameraStream(null)
     }
@@ -275,15 +328,29 @@ export default function ScannerPage() {
     
     if (videoRef.current) {
       videoRef.current.srcObject = null
+      videoRef.current.load()
     }
     
     setIsScanning(false)
+    setCameraReady(false)
+    setVideoLoaded(false)
+    setVideoPlaying(false)
     setCameraError(null)
-    console.log('🛑 Camera stopped')
+    updateDebug('✅ Cámara detenida')
+  }
+
+  const startQRScanning = () => {
+    updateDebug('🎯 Iniciando escaneo QR automático')
+    
+    scanIntervalRef.current = setInterval(() => {
+      scanQRFromVideo()
+    }, 300)
   }
 
   const scanQRFromVideo = () => {
-    if (!videoRef.current || !canvasRef.current || !isScanning) return
+    if (!videoRef.current || !canvasRef.current || !isScanning || !cameraReady || !videoPlaying) {
+      return
+    }
 
     const video = videoRef.current
     const canvas = canvasRef.current
@@ -294,52 +361,50 @@ export default function ScannerPage() {
     }
 
     try {
-      // Configurar canvas con las dimensiones del video
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
-
-      // Dibujar frame del video en canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-      // Obtener datos de imagen
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
 
-      // Escanear QR con jsQR - ¡ESTO ES LO REAL!
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "attemptBoth", // Probar inversión para mejor detección
+      // ✅ ESCANEO REAL CON jsQR
+      const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth"
       })
 
-      if (code && code.data) {
+      if (qrCode && qrCode.data) {
         const now = Date.now()
         
-        // Evitar escaneos duplicados (throttle de 2 segundos)
         if (now - lastScanTime < 2000) {
           return
         }
         
         setLastScanTime(now)
+        setScanCount(prev => prev + 1)
         
-        console.log('🎯 QR Code REAL detectado:', code.data)
+        console.log('🎯 ¡QR REAL DETECTADO!', {
+          data: qrCode.data.substring(0, 100) + '...',
+          location: qrCode.location,
+          scanNumber: scanCount + 1
+        })
         
-        // Detener escaneo temporalmente
+        updateDebug(`🎯 QR DETECTADO! Scan #${scanCount + 1}`)
+        
         if (scanIntervalRef.current) {
           clearInterval(scanIntervalRef.current)
           scanIntervalRef.current = null
         }
         
-        // Validar el QR real
-        validateQRCode(code.data)
+        validateQRCode(qrCode.data)
         
-        // Reanudar escaneo después de 3 segundos
         setTimeout(() => {
           if (isScanning) {
-            scanIntervalRef.current = setInterval(scanQRFromVideo, 500)
+            startQRScanning()
           }
         }, 3000)
       }
       
     } catch (err) {
-      console.error('Error in QR scanning:', err)
+      console.error('❌ Error en escaneo QR:', err)
     }
   }
 
@@ -347,13 +412,14 @@ export default function ScannerPage() {
     if (!selectedEvent) return
 
     try {
-      console.log('🔍 Validating QR:', qrToken.substring(0, 50) + '...')
-      
+      updateDebug('🔍 Validando QR con backend...')
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+      
       const response = await fetch(`${apiUrl}/qr/validate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           qrToken,
@@ -361,46 +427,55 @@ export default function ScannerPage() {
           scannerInfo: {
             user: scannerUser,
             device: navigator.userAgent,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            scanCount: scanCount + 1
           }
         })
       })
 
+      let result: ScanResult
+
       if (response.ok) {
-        const result: ScanResult = await response.json()
+        result = await response.json()
+        updateDebug(`✅ Respuesta: ${result.scanResult}`)
         
         if (result.success && result.scanResult === 'valid') {
           playSound('success')
+          showNotification(result.displayMessage, 'success')
         } else {
           playSound('error')
+          showNotification(result.displayMessage, 'error')
         }
-        
-        setScanResults(prev => [result, ...prev].slice(0, 20))
-        showNotification(result)
         
       } else {
         const errorResult = await response.json()
         playSound('error')
         
-        const errorScanResult: ScanResult = {
+        result = {
           success: false,
           scanResult: 'invalid',
-          displayMessage: errorResult.message || 'Error de validación'
+          displayMessage: errorResult.displayMessage || errorResult.message || 'Error de validación'
         }
         
-        setScanResults(prev => [errorScanResult, ...prev].slice(0, 20))
+        updateDebug(`❌ Error de validación: ${result.displayMessage}`)
+        showNotification(result.displayMessage, 'error')
       }
+      
+      setScanResults(prev => [result, ...prev].slice(0, 20))
+      
     } catch (err) {
-      console.error('Error validating QR:', err)
+      console.error('❌ Error validating QR:', err)
+      updateDebug(`❌ Error de conexión: ${err}`)
       playSound('error')
       
-      const errorScanResult: ScanResult = {
+      const errorResult: ScanResult = {
         success: false,
         scanResult: 'invalid',
-        displayMessage: 'Error de conexión con el servidor'
+        displayMessage: '❌ Error de conexión con servidor'
       }
       
-      setScanResults(prev => [errorScanResult, ...prev].slice(0, 20))
+      setScanResults(prev => [errorResult, ...prev].slice(0, 20))
+      showNotification(errorResult.displayMessage, 'error')
     }
   }
 
@@ -429,30 +504,31 @@ export default function ScannerPage() {
       oscillator.start(audioContext.currentTime)
       oscillator.stop(audioContext.currentTime + 0.2)
     } catch (err) {
-      console.log('Audio not supported')
+      console.log('🔇 Audio no soportado')
     }
   }
 
-  const showNotification = (result: ScanResult) => {
+  const showNotification = (message: string, type: 'success' | 'error') => {
     const notification = document.createElement('div')
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all duration-300 ${
-      result.success ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 ${
+      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
     }`
     notification.innerHTML = `
       <div class="flex items-center space-x-2">
-        <div class="text-xl">${result.success ? '✅' : '❌'}</div>
-        <div class="font-medium">${result.displayMessage}</div>
+        <div class="text-xl">${type === 'success' ? '✅' : '❌'}</div>
+        <div class="font-medium">${message}</div>
       </div>
     `
+    
+    notification.style.transform = 'translateX(100%)'
+    notification.style.opacity = '0'
     document.body.appendChild(notification)
     
-    // Animación de entrada
     setTimeout(() => {
       notification.style.transform = 'translateX(0)'
       notification.style.opacity = '1'
     }, 100)
     
-    // Remover después de 4 segundos
     setTimeout(() => {
       if (document.body.contains(notification)) {
         notification.style.transform = 'translateX(100%)'
@@ -466,39 +542,45 @@ export default function ScannerPage() {
     }, 4000)
   }
 
-  const simulateQRScan = async (scenario: 'valid' | 'used' | 'invalid' | 'wrong_event') => {
-    if (!selectedEvent) {
-      alert('Por favor selecciona un evento primero')
+  // ✅ FUNCIÓN DE TEST REAL 
+  const testQRScanning = () => {
+    if (!videoRef.current || !canvasRef.current || !videoPlaying) {
+      alert('❌ Video no está reproduciendo')
+      return
+    }
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      alert('❌ No se pudo obtener contexto de canvas')
       return
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
-      const response = await fetch(`${apiUrl}/qr/simulate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eventId: selectedEvent,
-          scenario
-        })
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 480
+      
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+
+      updateDebug(`🧪 Testing con imagen ${canvas.width}x${canvas.height}`)
+      
+      const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "attemptBoth"
       })
 
-      if (response.ok) {
-        const result: ScanResult = await response.json()
-        
-        if (result.success && result.scanResult === 'valid') {
-          playSound('success')
-        } else {
-          playSound('error')
-        }
-        
-        setScanResults(prev => [result, ...prev].slice(0, 20))
-        showNotification(result)
+      if (qrCode && qrCode.data) {
+        alert(`✅ ¡QR DETECTADO! Data: ${qrCode.data.substring(0, 100)}...`)
+        updateDebug(`✅ Test exitoso: QR encontrado`)
+      } else {
+        alert('❌ No se detectó ningún QR en la imagen actual')
+        updateDebug(`❌ Test: No QR encontrado`)
       }
     } catch (err) {
-      console.error('Error simulating scan:', err)
+      alert(`❌ Error en test: ${err}`)
+      updateDebug(`❌ Test error: ${err}`)
     }
   }
 
@@ -532,16 +614,6 @@ export default function ScannerPage() {
     }
   }
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('es-PE', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -571,18 +643,18 @@ export default function ScannerPage() {
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Scanner QR</h1>
-                <p className="text-gray-600">Valida entradas en tiempo real</p>
+                <h1 className="text-2xl font-bold text-gray-900">Scanner QR REAL</h1>
+                <p className="text-gray-600">Escaneo con jsQR + Debug completo</p>
               </div>
             </div>
             <div className="flex space-x-2">
               <Link href="/eventos" className="btn btn-outline">
                 <CalendarIcon className="w-5 h-5 mr-2" />
-                Ver Eventos
+                Eventos
               </Link>
               <Link href="/tickets" className="btn btn-primary">
                 <QrCodeIcon className="w-5 h-5 mr-2" />
-                Generar Tickets
+                Generar
               </Link>
             </div>
           </div>
@@ -601,7 +673,7 @@ export default function ScannerPage() {
           <div className="text-center py-12">
             <QrCodeIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay eventos activos</h3>
-            <p className="text-gray-600 mb-6">Necesitas tener eventos activos para usar el scanner</p>
+            <p className="text-gray-600 mb-6">Necesitas eventos activos para usar el scanner</p>
             <Link href="/eventos" className="btn btn-primary">
               <CalendarIcon className="w-5 h-5 mr-2" />
               Ver Eventos
@@ -613,22 +685,22 @@ export default function ScannerPage() {
             <div className="space-y-6">
               {/* Event Selection */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Configuración del Scanner</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Configuración</h2>
                 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Evento Activo
+                      Evento
                     </label>
                     <select
                       value={selectedEvent}
                       onChange={(e) => setSelectedEvent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Selecciona un evento</option>
                       {events.map((event) => (
                         <option key={event.id} value={event.id}>
-                          {event.name} - {new Date(event.date).toLocaleDateString('es-PE')}
+                          {event.name}
                         </option>
                       ))}
                     </select>
@@ -636,13 +708,13 @@ export default function ScannerPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Usuario del Scanner
+                      Operador
                     </label>
                     <input
                       type="text"
                       value={scannerUser}
                       onChange={(e) => setScannerUser(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Nombre del operador"
                     />
                   </div>
@@ -666,27 +738,14 @@ export default function ScannerPage() {
               {/* Camera Section */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Scanner de Cámara 
-                  <span className="ml-2 text-sm font-normal text-green-600">
-                    ✨ Con jsQR REAL
-                  </span>
+                  Cámara Scanner
+                  {scanCount > 0 && (
+                    <span className="ml-2 text-sm font-normal text-green-600">
+                      • {scanCount} escaneos REALES
+                    </span>
+                  )}
                 </h2>
                 
-                {/* Camera Permissions Status */}
-                {permissionStatus === 'denied' && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center">
-                      <ExclamationCircleIcon className="w-5 h-5 text-red-600 mr-2" />
-                      <div>
-                        <p className="text-red-800 font-medium">Permisos de cámara denegados</p>
-                        <p className="text-red-700 text-sm mt-1">
-                          Habilita el acceso a la cámara en la configuración de tu navegador
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Camera Error */}
                 {cameraError && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -695,20 +754,30 @@ export default function ScannerPage() {
                       <div>
                         <p className="text-red-800 font-medium">Error de Cámara</p>
                         <p className="text-red-700 text-sm mt-1">{cameraError}</p>
-                        <button
-                          onClick={checkCameraPermissions}
-                          className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                        >
-                          Verificar permisos nuevamente
-                        </button>
                       </div>
                     </div>
                   </div>
                 )}
+
+                {/* Debug Info MEJORADO */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
+                  <div className="font-medium text-blue-900 mb-2">🔍 Estado del Scanner:</div>
+                  <div className="grid grid-cols-2 gap-2 text-blue-800">
+                    <p>📹 Stream: {cameraStream ? (cameraStream.active ? '✅ Activo' : '❌ Inactivo') : '❌ No'}</p>
+                    <p>🎥 Video loaded: {videoLoaded ? '✅ Sí' : '❌ No'}</p>
+                    <p>📺 Camera ready: {cameraReady ? '✅ Sí' : '❌ No'}</p>
+                    <p>▶️ Video playing: {videoPlaying ? '✅ Sí' : '❌ No'}</p>
+                    <p>🔍 Scanning: {isScanning ? '✅ Activo' : '❌ Inactivo'}</p>
+                    <p>🎯 Scan count: {scanCount}</p>
+                  </div>
+                  <div className="mt-2 text-blue-700 text-xs">
+                    <strong>Debug:</strong> {debugInfo}
+                  </div>
+                </div>
                 
-                <div className="qr-scanner mb-6">
+                <div className="mb-6">
                   <div className="relative aspect-square bg-gray-900 rounded-lg overflow-hidden">
-                    {isScanning && !cameraError ? (
+                    {cameraStream ? (
                       <>
                         <video
                           ref={videoRef}
@@ -716,33 +785,28 @@ export default function ScannerPage() {
                           autoPlay
                           playsInline
                           muted
+                          style={{ 
+                            transform: 'scaleX(-1)', // Efecto espejo
+                            backgroundColor: '#000' // Fondo negro
+                          }}
                         />
-                        {/* Overlay de escaneo mejorado */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="relative">
-                            {/* Marco principal */}
-                            <div className="w-56 h-56 border-2 border-green-400 rounded-lg relative animate-pulse">
-                              {/* Esquinas animadas */}
-                              <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-300 rounded-tl-lg"></div>
-                              <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-300 rounded-tr-lg"></div>
-                              <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-300 rounded-bl-lg"></div>
-                              <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-300 rounded-br-lg"></div>
-                              
-                              {/* Línea de escaneo central */}
-                              <div className="absolute top-1/2 left-2 right-2 h-0.5 bg-green-400 animate-pulse"></div>
-                            </div>
-                            
-                            {/* Texto instructivo */}
-                            <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
-                              <p className="text-white text-sm font-medium bg-black bg-opacity-70 px-4 py-2 rounded-full">
-                                🎯 Enfoca el código QR aquí
-                              </p>
-                              <p className="text-green-400 text-xs mt-1 font-medium">
-                                jsQR Scanner Activo
-                              </p>
+                        {/* Overlay solo si está completamente ready */}
+                        {videoPlaying && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-64 h-64 border-4 border-green-400 rounded-xl relative animate-pulse">
+                              <div className="absolute -top-2 -left-2 w-8 h-8 border-t-4 border-l-4 border-green-300 rounded-tl-lg"></div>
+                              <div className="absolute -top-2 -right-2 w-8 h-8 border-t-4 border-r-4 border-green-300 rounded-tr-lg"></div>
+                              <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-4 border-l-4 border-green-300 rounded-bl-lg"></div>
+                              <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-4 border-r-4 border-green-300 rounded-br-lg"></div>
+                              <div className="absolute top-1/2 left-4 right-4 h-1 bg-green-400 animate-pulse"></div>
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">
+                                <p className="text-green-400 text-xs font-bold">
+                                  SCANNER REAL ACTIVO
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                         <canvas ref={canvasRef} className="hidden" />
                       </>
                     ) : (
@@ -752,14 +816,12 @@ export default function ScannerPage() {
                             <>
                               <VideoCameraIcon className="w-16 h-16 mx-auto mb-4 text-red-400" />
                               <p className="text-red-600 font-medium">Error de cámara</p>
-                              <p className="text-sm text-red-500">Revisa los permisos y configuración</p>
                             </>
                           ) : (
                             <>
                               <CameraIcon className="w-16 h-16 mx-auto mb-4" />
                               <p>Cámara inactiva</p>
-                              <p className="text-sm">Presiona iniciar para comenzar</p>
-                              <p className="text-xs text-gray-500 mt-2">Powered by jsQR</p>
+                              <p className="text-sm">Presiona iniciar</p>
                             </>
                           )}
                         </div>
@@ -768,99 +830,45 @@ export default function ScannerPage() {
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 mb-4">
                   {!isScanning ? (
                     <button
                       onClick={startCamera}
-                      disabled={!selectedEvent || permissionStatus === 'denied'}
-                      className="flex-1 inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      disabled={!selectedEvent}
+                      className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                     >
                       <PlayIcon className="w-5 h-5 mr-2" />
-                      {permissionStatus === 'denied' ? 'Permisos Denegados' : 'Iniciar Scanner QR'}
+                      Iniciar Scanner REAL
                     </button>
                   ) : (
                     <button
                       onClick={stopCamera}
-                      className="flex-1 inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+                      className="flex-1 inline-flex items-center justify-center px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
                     >
                       <StopIcon className="w-5 h-5 mr-2" />
-                      Detener Scanner
+                      Detener
                     </button>
                   )}
                   <button
                     onClick={() => window.location.reload()}
-                    className="inline-flex items-center justify-center px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                    title="Recargar página"
+                    className="inline-flex items-center justify-center px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <ArrowPathIcon className="w-5 h-5" />
                   </button>
                 </div>
-                
-                {/* Camera Info */}
-                {isScanning && videoRef.current && (
-                  <div className="mt-4 text-xs text-gray-500 bg-gray-50 rounded p-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <p>📹 Resolución: {videoRef.current.videoWidth}x{videoRef.current.videoHeight}</p>
-                      <p>🔍 Intervalo: 500ms</p>
-                      <p>📊 Estado: {isScanning ? 'Escaneando' : 'Detenido'}</p>
-                      <p>🚀 Motor: jsQR v1.4.0</p>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Instructions */}
-              <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-                <h3 className="text-lg font-semibold text-green-900 mb-4">
-                  📚 Instrucciones de Uso
-                </h3>
-                <div className="space-y-2 text-green-800 text-sm">
-                  <p>• <strong>Selecciona un evento activo</strong> en el dropdown superior</p>
-                  <p>• <strong>Haz clic en "Iniciar Scanner QR"</strong> para activar la cámara</p>
-                  <p>• <strong>Permite el acceso a la cámara</strong> cuando el navegador te lo solicite</p>
-                  <p>• <strong>Enfoca el código QR</strong> dentro del marco verde de la pantalla</p>
-                  <p>• <strong>El sistema detectará automáticamente</strong> los códigos QR válidos</p>
-                  <p>• <strong>Los resultados aparecerán</strong> en tiempo real en el panel de la derecha</p>
-                </div>
-              </div>
-
-              {/* Simulation Controls */}
-              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                <h3 className="text-lg font-semibold text-blue-900 mb-4">
-                  🧪 Pruebas de Escaneo
-                </h3>
-                <p className="text-blue-800 text-sm mb-4">
-                  Usa estos botones para probar diferentes escenarios sin necesidad de códigos QR físicos
-                </p>
-                <div className="grid grid-cols-2 gap-3">
+                {/* Botón de TEST */}
+                <div className="mb-4">
                   <button
-                    onClick={() => simulateQRScan('valid')}
-                    disabled={!selectedEvent}
-                    className="inline-flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm"
+                    onClick={testQRScanning}
+                    disabled={!videoPlaying}
+                    className="w-full inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm"
                   >
-                    ✅ QR Válido
+                    🧪 TEST: ¿Detecta QR ahora?
                   </button>
-                  <button
-                    onClick={() => simulateQRScan('used')}
-                    disabled={!selectedEvent}
-                    className="inline-flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
-                  >
-                    ❌ QR Usado
-                  </button>
-                  <button
-                    onClick={() => simulateQRScan('invalid')}
-                    disabled={!selectedEvent}
-                    className="inline-flex items-center justify-center px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 transition-colors text-sm"
-                  >
-                    🚫 QR Inválido
-                  </button>
-                  <button
-                    onClick={() => simulateQRScan('wrong_event')}
-                    disabled={!selectedEvent}
-                    className="inline-flex items-center justify-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors text-sm"
-                  >
-                    🔄 Evento Incorrecto
-                  </button>
+                  <p className="text-xs text-gray-500 mt-1 text-center">
+                    Haz click cuando tengas un QR en pantalla para probar si lo detecta
+                  </p>
                 </div>
               </div>
             </div>
@@ -870,53 +878,63 @@ export default function ScannerPage() {
               {/* Current Event Info */}
               {selectedEventData && (
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Evento Seleccionado</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="font-medium text-gray-900 text-lg">{selectedEventData.name}</p>
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
-                        🟢 Activo
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>📅 {formatDateTime(selectedEventData.date)}</p>
-                      {selectedEventData.location && <p>📍 {selectedEventData.location}</p>}
-                      <p>👤 Operador: {scannerUser}</p>
-                      <p>🔊 Sonidos: {soundEnabled ? 'Activados' : 'Desactivados'}</p>
-                    </div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Evento Actual</h2>
+                  <div className="space-y-2">
+                    <p className="font-medium text-gray-900">{selectedEventData.name}</p>
+                    <p className="text-sm text-gray-600">👤 {scannerUser}</p>
+                    <p className="text-sm text-gray-600">🎯 {scanCount} escaneos REALES</p>
+                    <p className="text-sm text-gray-600">
+                      🎥 Estado: {videoPlaying ? 'Video funcionando' : 'Video no reproduce'}
+                    </p>
                   </div>
                 </div>
               )}
+
+              {/* Quick QR Test */}
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+                <h3 className="text-lg font-semibold text-purple-900 mb-4">
+                  🧪 Verificación de Escaneo REAL
+                </h3>
+                <div className="space-y-3 text-purple-800 text-sm">
+                  <p>• <strong>Paso 1:</strong> Inicia el scanner y espera que aparezca tu imagen</p>
+                  <p>• <strong>Paso 2:</strong> Ve a `/tickets` y genera un código QR</p>
+                  <p>• <strong>Paso 3:</strong> Muestra el QR a la cámara</p>
+                  <p>• <strong>Paso 4:</strong> Haz click en "TEST: ¿Detecta QR ahora?" para verificar</p>
+                  <p>• <strong>Si detecta:</strong> ¡El scanner funciona! Si no, hay que ajustar más</p>
+                </div>
+              </div>
 
               {/* Scan Results */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Resultados de Escaneo ({scanResults.length})
+                    Resultados REALES ({scanResults.length})
                   </h2>
                   {scanResults.length > 0 && (
                     <button
                       onClick={() => setScanResults([])}
-                      className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                      className="text-sm text-gray-500 hover:text-gray-700"
                     >
                       Limpiar
                     </button>
                   )}
                 </div>
 
-                <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
                   {scanResults.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <QrCodeIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                      <p>No hay escaneos aún</p>
-                      <p className="text-sm">Los resultados aparecerán aquí en tiempo real</p>
-                      <p className="text-xs text-gray-400 mt-2">Tanto escáneos reales como simulaciones</p>
+                      <p>Sin escaneos REALES aún</p>
+                      <p className="text-sm">Los códigos QR detectados aparecerán aquí</p>
+                      <p className="text-xs text-purple-500 mt-2">
+                        Use el botón TEST para verificar detección
+                      </p>
                     </div>
                   ) : (
                     scanResults.map((result, index) => (
                       <div
                         key={index}
-                        className={`border rounded-lg p-4 transition-all duration-200 ${getResultColor(result.scanResult)}`}
+                        className={`border rounded-lg p-4 ${getResultColor(result.scanResult)}`}
                       >
                         <div className="flex items-start space-x-3">
                           {getResultIcon(result.scanResult)}
@@ -928,13 +946,7 @@ export default function ScannerPage() {
                             {result.ticketInfo && (
                               <div className="text-sm text-gray-600 space-y-1 mt-2">
                                 <p>🎫 {result.ticketInfo.ticketType.name}</p>
-                                <p>💰 {new Intl.NumberFormat('es-PE', {
-                                  style: 'currency',
-                                  currency: 'PEN'
-                                }).format(result.ticketInfo.ticketType.price)}</p>
-                                {result.ticketInfo.scannedAt && (
-                                  <p>⏰ {formatDateTime(result.ticketInfo.scannedAt)}</p>
-                                )}
+                                <p>💰 S/ {result.ticketInfo.ticketType.price}</p>
                               </div>
                             )}
                             
@@ -942,13 +954,11 @@ export default function ScannerPage() {
                               <div className="text-xs text-gray-500">
                                 {new Date().toLocaleTimeString('es-PE')}
                               </div>
-                              <div className="flex space-x-2">
-                                {result.simulation && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                    Simulación
-                                  </span>
-                                )}
-                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                              <div className="flex space-x-1">
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  REAL
+                                </span>
+                                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
                                   #{index + 1}
                                 </span>
                               </div>
@@ -964,62 +974,23 @@ export default function ScannerPage() {
               {/* Statistics */}
               {scanResults.length > 0 && (
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de Sesión</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas REALES</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">
                         {scanResults.filter(r => r.scanResult === 'valid').length}
                       </div>
-                      <div className="text-xs text-gray-600">Válidos</div>
+                      <div className="text-xs text-gray-600">Válidos REALES</div>
                     </div>
-                    <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="text-center p-4 bg-red-50 rounded-lg">
                       <div className="text-2xl font-bold text-red-600">
                         {scanResults.filter(r => r.scanResult !== 'valid').length}
                       </div>
-                      <div className="text-xs text-gray-600">Rechazados</div>
-                    </div>
-                  </div>
-                  
-                  {/* Breakdown by type */}
-                  <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
-                    <div className="text-center p-2 bg-gray-50 rounded">
-                      <div className="font-bold text-gray-700">
-                        {scanResults.filter(r => r.scanResult === 'used').length}
-                      </div>
-                      <div className="text-gray-600">Usados</div>
-                    </div>
-                    <div className="text-center p-2 bg-gray-50 rounded">
-                      <div className="font-bold text-gray-700">
-                        {scanResults.filter(r => r.scanResult === 'invalid').length}
-                      </div>
-                      <div className="text-gray-600">Inválidos</div>
-                    </div>
-                    <div className="text-center p-2 bg-gray-50 rounded">
-                      <div className="font-bold text-gray-700">
-                        {scanResults.filter(r => r.scanResult === 'wrong_event').length}
-                      </div>
-                      <div className="text-gray-600">Evento ≠</div>
-                    </div>
-                    <div className="text-center p-2 bg-gray-50 rounded">
-                      <div className="font-bold text-gray-700">
-                        {scanResults.filter(r => r.simulation).length}
-                      </div>
-                      <div className="text-gray-600">Pruebas</div>
+                      <div className="text-xs text-gray-600">Rechazados REALES</div>
                     </div>
                   </div>
                 </div>
               )}
-
-              {/* Tech Info */}
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">📡 Info Técnica</h4>
-                <div className="text-xs text-gray-600 space-y-1">
-                  <p>🔧 Librería: jsQR v1.4.0</p>
-                  <p>📱 Navegador: {navigator.userAgent.split(' ')[0]}</p>
-                  <p>🎯 Última detección: {lastScanTime ? new Date(lastScanTime).toLocaleTimeString() : 'Ninguna'}</p>
-                  <p>📊 Total escaneos: {scanResults.length}</p>
-                </div>
-              </div>
             </div>
           </div>
         )}

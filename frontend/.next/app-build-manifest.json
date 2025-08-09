@@ -1,53 +1,52 @@
 {
   "pages": {
     "/_not-found/page": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/chunks/app/_not-found/page-bae24f50aff2a05d.js"
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/chunks/app/_not-found/page-a4c20d34ddb48ed7.js"
     ],
     "/layout": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/css/5992f4b0141f8484.css",
-      "static/chunks/434-57c7bc97f4315d98.js",
-      "static/chunks/app/layout-adff3252c2ebd9b1.js"
-    ],
-    "/eventos/page": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/chunks/345-28a9b0efd2cfa536.js",
-      "static/chunks/app/eventos/page-fec475ffd1ce7111.js"
-    ],
-    "/tickets/page": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/chunks/345-28a9b0efd2cfa536.js",
-      "static/chunks/app/tickets/page-3af02e63c27e87e9.js"
-    ],
-    "/scanner/page": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/chunks/d0f5a89a-718ff327e9c9a3c0.js",
-      "static/chunks/345-28a9b0efd2cfa536.js",
-      "static/chunks/app/scanner/page-ef9d04f6e51a88e9.js"
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/css/332075021d9a42a3.css",
+      "static/chunks/app/layout-de70441fc4e699c6.js"
     ],
     "/page": [
-      "static/chunks/webpack-5c548fe292770a46.js",
-      "static/chunks/fd9d1056-074841b6154913c4.js",
-      "static/chunks/117-f8487389b50d5de3.js",
-      "static/chunks/main-app-099f6831c775fa23.js",
-      "static/chunks/345-28a9b0efd2cfa536.js",
-      "static/chunks/app/page-c25c3f5d9d323d45.js"
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/chunks/916-e3e5cd6cd3b7c233.js",
+      "static/chunks/app/page-7adc9e0fa1259316.js"
+    ],
+    "/scanner/page": [
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/chunks/d0f5a89a-4535d17262a9b9ef.js",
+      "static/chunks/916-e3e5cd6cd3b7c233.js",
+      "static/chunks/app/scanner/page-854c5c02b9170ace.js"
+    ],
+    "/eventos/page": [
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/chunks/916-e3e5cd6cd3b7c233.js",
+      "static/chunks/app/eventos/page-0f48dabe6464f102.js"
+    ],
+    "/tickets/page": [
+      "static/chunks/webpack-6ace477bd44f6334.js",
+      "static/chunks/fd9d1056-190f5d66414aab5f.js",
+      "static/chunks/23-809d097dd52a6e95.js",
+      "static/chunks/main-app-2c45dbed7737a45e.js",
+      "static/chunks/916-e3e5cd6cd3b7c233.js",
+      "static/chunks/app/tickets/page-07d231cf7a38c43d.js"
     ]
   }
 }

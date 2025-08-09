@@ -24,18 +24,18 @@ app.use(helmet({
   crossOriginOpenerPolicy: false
 }));
 
-// CORS COMPLETAMENTE LIMPIO - SIN NGROK HEADERS
+// CORS LIMPIO Y PERMISIVO PARA DESARROLLO
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 CORS Request from origin:', origin);
     
-    // Permitir requests sin origin (Postman, etc.)
+    // Permitir requests sin origin (Postman, apps móviles, etc.)
     if (!origin) {
       console.log('✅ CORS: Sin origin - permitido');
       return callback(null, true);
     }
     
-    // Lista de orígenes permitidos SOLO LOCALHOST
+    // Lista de orígenes permitidos
     const allowedOrigins = [
       'http://localhost:3000',
       'http://127.0.0.1:3000',
@@ -43,15 +43,15 @@ app.use(cors({
       'http://127.0.0.1:3001',
     ];
     
-    // Verificar origen exacto
-    if (allowedOrigins.includes(origin)) {
-      console.log('✅ CORS: Origin permitido -', origin);
+    // En desarrollo, ser muy permisivo
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔓 CORS: Modo desarrollo - permitiendo', origin);
       return callback(null, true);
     }
     
-    // En desarrollo, ser permisivo
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔓 CORS: Modo desarrollo - permitiendo', origin);
+    // Verificar origen exacto
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS: Origin permitido -', origin);
       return callback(null, true);
     }
     
@@ -69,7 +69,7 @@ app.use(cors({
     'User-Agent',
     'Cache-Control',
     'X-Client-Info'
-    // ❌ ELIMINADO: 'ngrok-skip-browser-warning'
+    // ✅ SIN ngrok-skip-browser-warning
   ],
   exposedHeaders: [
     'Content-Length',
@@ -82,11 +82,14 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Middleware adicional para headers CORS limpios
+// Headers CORS adicionales limpios
 app.use((req, res, next) => {
   const origin = req.get('Origin');
   
-  if (origin) {
+  // Permitir todos los orígenes en desarrollo
+  if (process.env.NODE_ENV === 'development') {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  } else if (origin) {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://127.0.0.1:3000',
@@ -94,12 +97,9 @@ app.use((req, res, next) => {
       'http://127.0.0.1:3001'
     ];
     
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
-      console.log('🔧 CORS Manual: Set origin to', origin);
     }
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
   }
   
   res.header('Access-Control-Allow-Credentials', 'true');

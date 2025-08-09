@@ -14,41 +14,6 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   
-  // Configuración de webpack optimizada
-  webpack: (config, { dev, isServer }) => {
-    // Optimizaciones para desarrollo
-    if (dev) {
-      config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
-        ignored: /node_modules/,
-      }
-      
-      // Configuración de chunks más estable
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          cacheGroups: {
-            default: {
-              minChunks: 2,
-              priority: -20,
-              reuseExistingChunk: true,
-            },
-            vendor: {
-              test: /[\\/]node_modules[\\/]/,
-              name: 'vendors',
-              priority: -10,
-              chunks: 'all',
-            },
-          },
-        },
-      }
-    }
-    
-    return config
-  },
-  
   // Headers básicos
   async headers() {
     return [
@@ -64,27 +29,31 @@ const nextConfig = {
     ]
   },
   
-  // Configuración experimental actualizada
-  experimental: {
-    // Características estables
-    serverComponentsExternalPackages: [],
-  },
+  // ✅ ELIMINAMOS experimental para evitar conflictos
+  // experimental: {
+  //   serverComponentsExternalPackages: [],
+  // },
   
-  // Configuración de desarrollo más permisiva
+  // Configuración estable para desarrollo
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // Cambiado a false para mejor debugging
   },
   
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // Cambiado a false para mejor debugging
   },
   
-  // Configuración de compilación
+  // Configuración de compilación ESTABLE
   swcMinify: true,
-  reactStrictMode: false, // Temporalmente para evitar errores
+  reactStrictMode: true, // Activado para mejor debugging
   
   // Configuración de páginas
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  
+  // ✅ SIN configuración de webpack personalizada que cause conflictos
+  // webpack: (config, { dev, isServer }) => {
+  //   return config
+  // },
   
   // Configuración de redirects
   async redirects() {

@@ -48,12 +48,12 @@ const QUICK_ACTIONS: QuickAction[] = [
     color: 'green'
   },
   {
-    title: 'Scanner QR',
-    description: 'Valida entradas en tiempo real',
+    title: 'Scanner QR REAL',
+    description: 'Valida entradas reales en tiempo real',
     href: '/scanner',
     icon: QrCodeIcon,
     color: 'purple',
-    badge: 'Live'
+    badge: 'REAL'
   }
 ]
 
@@ -81,12 +81,13 @@ export default function HomePage() {
       
       console.log('🔍 Loading stats from:', apiUrl)
       
-      // Health check LIMPIO
+      // Health check COMPLETAMENTE LIMPIO
       const healthResponse = await fetch(`${apiUrl}/health`, {
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-          // ❌ ELIMINADO: 'ngrok-skip-browser-warning': 'true'
+          // ❌ COMPLETAMENTE SIN: 'ngrok-skip-browser-warning': 'true'
         }
       })
       
@@ -97,12 +98,13 @@ export default function HomePage() {
       const healthData = await healthResponse.json()
       console.log('✅ Health check OK:', healthData)
       
-      // Load events LIMPIO
+      // Load events COMPLETAMENTE LIMPIO
       const eventsResponse = await fetch(`${apiUrl}/events`, {
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-          // ❌ ELIMINADO: 'ngrok-skip-browser-warning': 'true'
+          // ❌ COMPLETAMENTE SIN: 'ngrok-skip-browser-warning': 'true'
         }
       })
       
@@ -410,6 +412,43 @@ export default function HomePage() {
               </p>
             </div>
           )}
+          
+          {stats.systemStatus === 'online' && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-green-800 text-sm">
+                <strong>✅ Sistema completamente operativo</strong><br />
+                Backend conectado sin errores CORS • QR Scanner REAL disponible
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* QR Scanner Status */}
+        <div className="mt-8 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+          <h3 className="text-lg font-semibold text-purple-900 mb-4">🎯 Scanner QR REAL</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-white rounded-lg border border-purple-100">
+              <div className="text-2xl font-bold text-purple-600 mb-1">jsQR</div>
+              <div className="text-xs text-gray-600">Librería Real</div>
+            </div>
+            <div className="text-center p-4 bg-white rounded-lg border border-purple-100">
+              <div className="text-2xl font-bold text-green-600 mb-1">✅</div>
+              <div className="text-xs text-gray-600">Scanner Listo</div>
+            </div>
+            <div className="text-center p-4 bg-white rounded-lg border border-purple-100">
+              <div className="text-2xl font-bold text-blue-600 mb-1">REAL</div>
+              <div className="text-xs text-gray-600">No Simulación</div>
+            </div>
+          </div>
+          <div className="mt-4 text-center">
+            <Link 
+              href="/scanner"
+              className="inline-flex items-center px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <QrCodeIcon className="w-5 h-5 mr-2" />
+              Abrir Scanner QR REAL
+            </Link>
+          </div>
         </div>
       </main>
 
@@ -419,6 +458,7 @@ export default function HomePage() {
           <div className="text-center text-gray-600">
             <p className="mb-2">© 2024 Producciones Saavedra. Sistema Profesional de Gestión de Eventos.</p>
             <p className="text-sm">Desarrollado con tecnología de vanguardia para máxima confiabilidad.</p>
+            <p className="text-xs text-gray-500 mt-2">QR Scanner REAL con jsQR • Sin headers CORS problemáticos</p>
           </div>
         </div>
       </footer>

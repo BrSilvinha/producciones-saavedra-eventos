@@ -5,6 +5,20 @@ const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 const { Event, TicketType, Ticket, ScanLog } = require('../models');
 
+// Configuración QR MÁS GRANDE
+const QR_CONFIG = {
+  errorCorrectionLevel: 'M',
+  type: 'image/png',
+  quality: 0.95,
+  margin: 2,
+  color: {
+    dark: '#000000',
+    light: '#FFFFFF'
+  },
+  width: 512, // ✅ MÁS GRANDE - antes era 256
+  scale: 8    // ✅ ESCALA MAYOR para mejor definición
+};
+
 // POST /api/tickets/generate - Generar tickets para un evento
 router.post('/generate', async (req, res) => {
   try {
@@ -82,7 +96,8 @@ router.post('/generate', async (req, res) => {
         eventName: event.name,
         ticketTypeName: ticketType.name,
         price: ticketType.price,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        version: '1.0'
       };
       
       const qrToken = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
@@ -98,24 +113,21 @@ router.post('/generate', async (req, res) => {
         status: 'generated'
       });
       
-      // Generar código QR
-      const qrCodeDataURL = await QRCode.toDataURL(qrToken, {
-        errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 0.92,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
-        },
-        width: 256
-      });
+      // Generar código QR MÁS GRANDE
+      console.log('🎯 Generando QR con configuración:', QR_CONFIG);
+      const qrCodeDataURL = await QRCode.toDataURL(qrToken, QR_CONFIG);
       
       tickets.push(ticket);
       qrCodes.push({
         ticketId: ticket.id,
         qrCode: qrCodeDataURL,
-        token: qrToken
+        token: qrToken,
+        ticketType: ticketType.name,
+        metadata: {
+          width: QR_CONFIG.width,
+          scale: QR_CONFIG.scale,
+          margin: QR_CONFIG.margin
+        }
       });
       
       // Reducir disponibilidad
@@ -137,9 +149,10 @@ router.post('/generate', async (req, res) => {
           id: ticketType.id,
           name: ticketType.name,
           price: ticketType.price
-        }
+        },
+        qrConfig: QR_CONFIG // Incluir configuración para debug
       },
-      message: `${quantity} ticket(s) generado(s) exitosamente`
+      message: `${quantity} ticket(s) generado(s) exitosamente con QR de ${QR_CONFIG.width}px`
     });
   } catch (error) {
     console.error('Error al generar tickets:', error);
@@ -251,7 +264,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// GET /api/tickets/:id/qr - Obtener código QR de un ticket
+// GET /api/tickets/:id/qr - Obtener código QR de un ticket MÁS GRANDE
 router.get('/:id/qr', async (req, res) => {
   try {
     const { id } = req.params;
@@ -278,24 +291,15 @@ router.get('/:id/qr', async (req, res) => {
       });
     }
     
-    // Generar código QR actualizado
-    const qrCodeDataURL = await QRCode.toDataURL(ticket.qr_token, {
-      errorCorrectionLevel: 'M',
-      type: 'image/png',
-      quality: 0.92,
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      },
-      width: 256
-    });
+    // Generar código QR actualizado con configuración GRANDE
+    const qrCodeDataURL = await QRCode.toDataURL(ticket.qr_token, QR_CONFIG);
     
     res.json({
       success: true,
       data: {
         ticket,
-        qrCode: qrCodeDataURL
+        qrCode: qrCodeDataURL,
+        qrConfig: QR_CONFIG
       }
     });
   } catch (error) {
@@ -308,55 +312,7 @@ router.get('/:id/qr', async (req, res) => {
   }
 });
 
-// PUT /api/tickets/:id/expire - Expirar un ticket
-router.put('/:id/expire', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const ticket = await Ticket.findByPk(id);
-    if (!ticket) {
-      return res.status(404).json({
-        success: false,
-        message: 'Ticket no encontrado'
-      });
-    }
-    
-    if (ticket.status === 'scanned') {
-      return res.status(400).json({
-        success: false,
-        message: 'No se puede expirar un ticket ya escaneado'
-      });
-    }
-    
-    if (ticket.status === 'expired') {
-      return res.status(400).json({
-        success: false,
-        message: 'Este ticket ya está expirado'
-      });
-    }
-    
-    await ticket.update({ status: 'expired' });
-    
-    // Incrementar disponibilidad en el tipo de ticket
-    const ticketType = await TicketType.findByPk(ticket.ticket_type_id);
-    await ticketType.increment('available', { by: 1 });
-    
-    res.json({
-      success: true,
-      data: ticket,
-      message: 'Ticket expirado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error al expirar ticket:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al expirar el ticket',
-      error: error.message
-    });
-  }
-});
-
-// POST /api/tickets/bulk-generate - Generación masiva de tickets
+// POST /api/tickets/bulk-generate - Generación masiva de tickets MÁS GRANDES
 router.post('/bulk-generate', async (req, res) => {
   try {
     const { eventId, ticketRequests } = req.body;
@@ -426,7 +382,8 @@ router.post('/bulk-generate', async (req, res) => {
           eventName: event.name,
           ticketTypeName: ticketType.name,
           price: ticketType.price,
-          generatedAt: new Date().toISOString()
+          generatedAt: new Date().toISOString(),
+          version: '1.0'
         };
         
         const qrToken = jwt.sign(jwtPayload, process.env.JWT_SECRET, {
@@ -441,20 +398,19 @@ router.post('/bulk-generate', async (req, res) => {
           status: 'generated'
         });
         
-        const qrCodeDataURL = await QRCode.toDataURL(qrToken, {
-          errorCorrectionLevel: 'M',
-          type: 'image/png',
-          quality: 0.92,
-          margin: 1,
-          width: 256
-        });
+        // Generar QR MÁS GRANDE
+        const qrCodeDataURL = await QRCode.toDataURL(qrToken, QR_CONFIG);
         
         allTickets.push(ticket);
         allQrCodes.push({
           ticketId: ticket.id,
           ticketType: ticketType.name,
           qrCode: qrCodeDataURL,
-          token: qrToken
+          token: qrToken,
+          metadata: {
+            width: QR_CONFIG.width,
+            scale: QR_CONFIG.scale
+          }
         });
       }
       
@@ -481,15 +437,64 @@ router.post('/bulk-generate', async (req, res) => {
             price: ticketType.price,
             total: ticketType.price * req.quantity
           };
-        })
+        }),
+        qrConfig: QR_CONFIG
       },
-      message: `${allTickets.length} tickets generados exitosamente`
+      message: `${allTickets.length} tickets generados exitosamente con QR de ${QR_CONFIG.width}px`
     });
   } catch (error) {
     console.error('Error en generación masiva:', error);
     res.status(500).json({
       success: false,
       message: 'Error en la generación masiva de tickets',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/tickets/:id/expire - Expirar un ticket
+router.put('/:id/expire', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const ticket = await Ticket.findByPk(id);
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ticket no encontrado'
+      });
+    }
+    
+    if (ticket.status === 'scanned') {
+      return res.status(400).json({
+        success: false,
+        message: 'No se puede expirar un ticket ya escaneado'
+      });
+    }
+    
+    if (ticket.status === 'expired') {
+      return res.status(400).json({
+        success: false,
+        message: 'Este ticket ya está expirado'
+      });
+    }
+    
+    await ticket.update({ status: 'expired' });
+    
+    // Incrementar disponibilidad en el tipo de ticket
+    const ticketType = await TicketType.findByPk(ticket.ticket_type_id);
+    await ticketType.increment('available', { by: 1 });
+    
+    res.json({
+      success: true,
+      data: ticket,
+      message: 'Ticket expirado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al expirar ticket:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al expirar el ticket',
       error: error.message
     });
   }
@@ -550,7 +555,8 @@ router.get('/stats/:eventId', async (req, res) => {
       success: true,
       data: {
         general: generalStats,
-        byTicketType: ticketTypeStats
+        byTicketType: ticketTypeStats,
+        qrConfig: QR_CONFIG
       }
     });
   } catch (error) {

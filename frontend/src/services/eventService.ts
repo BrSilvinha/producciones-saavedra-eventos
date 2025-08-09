@@ -13,12 +13,12 @@ class EventService {
 
   // Obtener todos los eventos
   async getEvents(filters?: EventFilters) {
+    // ✅ SIMPLIFICADO - sin getPaginationParams que no existe
     const params = {
       ...filters,
-      ...apiUtils.getPaginationParams(
-        filters?.offset ? Math.floor(filters.offset / (filters.limit || 50)) + 1 : 1,
-        filters?.limit
-      ),
+      // Paginación manual simple
+      page: filters?.offset ? Math.floor(filters.offset / (filters.limit || 50)) + 1 : 1,
+      limit: filters?.limit || 50
     }
     
     const response = await createApiRequest.get<Event[]>(this.basePath, params)
