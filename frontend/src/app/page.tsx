@@ -77,17 +77,16 @@ export default function HomePage() {
 
   const loadSystemStats = async () => {
     try {
-      // Usar fetch simple que sabemos que funciona
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api'
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
       
       console.log('🔍 Loading stats from:', apiUrl)
       
-      // Health check simple
+      // Health check LIMPIO
       const healthResponse = await fetch(`${apiUrl}/health`, {
         headers: {
           'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          'User-Agent': 'ProduccionesSaavedra/1.0'
+          'Content-Type': 'application/json'
+          // ❌ ELIMINADO: 'ngrok-skip-browser-warning': 'true'
         }
       })
       
@@ -98,12 +97,12 @@ export default function HomePage() {
       const healthData = await healthResponse.json()
       console.log('✅ Health check OK:', healthData)
       
-      // Load events
+      // Load events LIMPIO
       const eventsResponse = await fetch(`${apiUrl}/events`, {
         headers: {
           'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          'User-Agent': 'ProduccionesSaavedra/1.0'
+          'Content-Type': 'application/json'
+          // ❌ ELIMINADO: 'ngrok-skip-browser-warning': 'true'
         }
       })
       
@@ -394,7 +393,7 @@ export default function HomePage() {
             <div>
               <strong>Backend URL:</strong><br />
               <code className="text-xs bg-white px-2 py-1 rounded">
-                {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api'}
+                {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}
               </code>
             </div>
             <div>
@@ -402,6 +401,15 @@ export default function HomePage() {
               <span className="text-blue-700">{lastUpdate.toLocaleString('es-PE')}</span>
             </div>
           </div>
+          
+          {stats.systemStatus === 'offline' && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm">
+                <strong>❌ Sin conexión al backend</strong><br />
+                Verifica que el servidor esté corriendo en <code>localhost:5000</code>
+              </p>
+            </div>
+          )}
         </div>
       </main>
 

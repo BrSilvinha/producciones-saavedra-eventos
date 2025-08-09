@@ -2,7 +2,7 @@
 const nextConfig = {
   // Variables de entorno públicas
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
     NEXT_PUBLIC_APP_NAME: 'Producciones Saavedra',
     NEXT_PUBLIC_APP_VERSION: '1.0.0',
     NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT || 'development',
@@ -10,17 +10,46 @@ const nextConfig = {
   
   // Configuración de imágenes
   images: {
-    domains: [
-      'localhost', 
-      'cloudinary.com',
-      '*.ngrok-free.app',
-      '237af844b109.ngrok-free.app',
-      '192.168.1.52',
-    ],
+    domains: ['localhost', 'cloudinary.com'],
     formats: ['image/webp', 'image/avif'],
   },
   
-  // Headers optimizados para desarrollo
+  // Configuración de webpack optimizada
+  webpack: (config, { dev, isServer }) => {
+    // Optimizaciones para desarrollo
+    if (dev) {
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+        ignored: /node_modules/,
+      }
+      
+      // Configuración de chunks más estable
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            default: {
+              minChunks: 2,
+              priority: -20,
+              reuseExistingChunk: true,
+            },
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendors',
+              priority: -10,
+              chunks: 'all',
+            },
+          },
+        },
+      }
+    }
+    
+    return config
+  },
+  
+  // Headers básicos
   async headers() {
     return [
       {
@@ -30,35 +59,18 @@ const nextConfig = {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN',
           },
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
-          },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'X-Requested-With, Content-Type, Authorization, Accept, Origin, ngrok-skip-browser-warning',
-          },
         ],
       },
     ]
   },
   
-  // Configuración de webpack
-  webpack: (config, { dev }) => {
-    if (dev) {
-      config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
-      }
-    }
-    return config
+  // Configuración experimental actualizada
+  experimental: {
+    // Características estables
+    serverComponentsExternalPackages: [],
   },
   
-  // Configuración permisiva para desarrollo
+  // Configuración de desarrollo más permisiva
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -67,19 +79,22 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   
-  // SIN rewrites para evitar problemas
-  async rewrites() {
+  // Configuración de compilación
+  swcMinify: true,
+  reactStrictMode: false, // Temporalmente para evitar errores
+  
+  // Configuración de páginas
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  
+  // Configuración de redirects
+  async redirects() {
     return []
   },
   
-  // Configuración experimental
-  experimental: {
-    serverComponentsExternalPackages: [],
+  // Configuración de rewrites
+  async rewrites() {
+    return []
   },
-  
-  output: 'standalone',
-  compress: true,
-  swcMinify: true,
 }
 
 module.exports = nextConfig
