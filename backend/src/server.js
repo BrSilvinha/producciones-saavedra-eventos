@@ -23,6 +23,16 @@ const startServer = async () => {
     setTimeout(async () => {
       try {
         const { sequelize } = require('./models');
+        
+        // Verificar si sequelize está configurado correctamente
+        if (!sequelize || typeof sequelize.authenticate !== 'function') {
+          console.warn('⚠️  Base de datos no configurada - funcionando en modo sin DB');
+          console.warn('💡 Para habilitar la base de datos:');
+          console.warn('   1. Configura DATABASE_URL en Railway');
+          console.warn('   2. Formato: postgresql://usuario:password@host:puerto/database');
+          return;
+        }
+        
         console.log('🔗 Intentando conectar a la base de datos...');
         
         await sequelize.authenticate();
@@ -35,8 +45,11 @@ const startServer = async () => {
         }
       } catch (dbError) {
         console.warn('⚠️  Base de datos no disponible:', dbError.message);
-        console.warn('⚠️  El servidor funcionará en modo degradado');
-        console.warn('💡 Verifica DATABASE_URL en Railway');
+        console.warn('⚠️  El servidor funcionará en modo degradado (sin base de datos)');
+        console.warn('💡 Para conectar la base de datos en Railway:');
+        console.warn('   1. Ve al Dashboard de Railway');
+        console.warn('   2. En Variables, agrega: DATABASE_URL');
+        console.warn('   3. Valor: postgresql://usuario:password@host:puerto/database');
       }
     }, 100); // Iniciar conexión DB después de 100ms
 
