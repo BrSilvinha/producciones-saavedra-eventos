@@ -1,12 +1,18 @@
-# ✅ DOCKERFILE CORREGIDO PARA RAILWAY
+# ✅ DOCKERFILE RESILIENTE A PROBLEMAS DE RED
 FROM node:18-alpine AS base
 
-# Instalar dependencias del sistema
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    postgresql-client
+# ✅ INSTALACIÓN MÁS RESILIENTE DE DEPENDENCIAS DEL SISTEMA
+RUN apk update && \
+    apk add --no-cache --retry 3 \
+        python3 \
+        make \
+        g++ && \
+    # Instalar PostgreSQL client por separado con reintentos
+    apk add --no-cache --retry 3 postgresql-client || \
+    (sleep 5 && apk add --no-cache postgresql-client) && \
+    # Instalar curl por separado con reintentos  
+    apk add --no-cache --retry 3 curl || \
+    (sleep 5 && apk add --no-cache curl)
 
 WORKDIR /app
 
@@ -20,16 +26,26 @@ COPY frontend/package*.json ./frontend/
 # ============================================
 FROM base AS deps
 
+# Configurar NPM para ser más resiliente
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-factor 2 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retry-maxtimeout 60000
+
 # Instalar dependencias raíz
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts || \
+    (echo "Retry installing root dependencies..." && sleep 10 && npm ci --ignore-scripts)
 
 # Instalar dependencias del backend (solo producción)
 WORKDIR /app/backend
-RUN npm ci --only=production --ignore-scripts
+RUN npm ci --only=production --ignore-scripts || \
+    (echo "Retry installing backend dependencies..." && sleep 10 && npm ci --only=production --ignore-scripts)
 
 # Instalar TODAS las dependencias del frontend (incluye devDependencies para build)
 WORKDIR /app/frontend
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts || \
+    (echo "Retry installing frontend dependencies..." && sleep 10 && npm ci --ignore-scripts)
 
 # ============================================
 # STAGE 2: Build del frontend
@@ -38,7 +54,7 @@ FROM base AS frontend-builder
 
 WORKDIR /app
 
-# Copiar dependencias ya instaladas (TODAS las dependencias del frontend)
+# Copiar dependencias ya instaladas
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 
@@ -48,8 +64,6 @@ COPY frontend/tailwind.config.js ./frontend/
 COPY frontend/postcss.config.js ./frontend/
 COPY frontend/next.config.js ./frontend/
 COPY frontend/tsconfig.json ./frontend/
-COPY frontend/.eslintrc.json ./frontend/
-COPY frontend/.prettierrc ./frontend/
 
 # Copiar código fuente del frontend
 COPY frontend/src/ ./frontend/src/
@@ -59,17 +73,13 @@ COPY frontend/public/ ./frontend/public/
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Debug: Verificar que las dependencias estén instaladas
+# Build del frontend con reintentos
 WORKDIR /app/frontend
-RUN echo "📦 Verificando dependencias de Tailwind..." && \
-    ls -la node_modules/@tailwindcss/ || echo "❌ @tailwindcss no encontrado" && \
-    npm list @tailwindcss/forms || echo "❌ @tailwindcss/forms no encontrado"
-
-# Build del frontend
-RUN npm run build
+RUN npm run build || \
+    (echo "Retry building frontend..." && sleep 5 && npm run build)
 
 # ============================================
-# STAGE 3: Imagen final de producción
+# STAGE 3: Imagen final de producción 
 # ============================================
 FROM node:18-alpine AS production
 
@@ -77,14 +87,14 @@ FROM node:18-alpine AS production
 LABEL name="producciones-saavedra"
 LABEL version="1.0.0"
 
-# Instalar dependencias de runtime
-RUN apk add --no-cache \
-    postgresql-client \
-    curl
+# ✅ INSTALACIÓN MÍNIMA Y RESILIENTE DE RUNTIME
+RUN apk update && \
+    apk add --no-cache --retry 3 curl || \
+    (sleep 5 && apk add --no-cache curl)
 
 # Crear usuario no-root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodejs
 
 WORKDIR /app
 
@@ -118,9 +128,11 @@ USER nodejs
 # Exponer puerto
 EXPOSE 5000
 
-# Health check
+# Health check simplificado (sin curl si falla la instalación)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/api/health || exit 1
+    CMD curl -f http://localhost:5000/api/health || \
+        wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || \
+        exit 1
 
 # Comando de inicio - Solo backend en Railway
 CMD ["node", "backend/src/server.js"]
