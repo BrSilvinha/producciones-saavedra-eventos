@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "build": "echo 'Backend no necesita build'",
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:create": "sequelize-cli db:create",
     "db:migrate": "sequelize-cli db:migrate",
@@ -15,6 +16,10 @@
   "author": "Producciones Saavedra",
   "license": "ISC",
   "description": "Sistema de gestión de eventos con códigos QR",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

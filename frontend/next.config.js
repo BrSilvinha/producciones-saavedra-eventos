@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ✅ CRÍTICO: Output standalone para Railway
+  output: 'standalone',
+  
   // Variables de entorno públicas
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
@@ -29,31 +32,21 @@ const nextConfig = {
     ]
   },
   
-  // ✅ ELIMINAMOS experimental para evitar conflictos
-  // experimental: {
-  //   serverComponentsExternalPackages: [],
-  // },
-  
-  // Configuración estable para desarrollo
+  // Configuración estable para producción
   typescript: {
-    ignoreBuildErrors: false, // Cambiado a false para mejor debugging
+    ignoreBuildErrors: false,
   },
   
   eslint: {
-    ignoreDuringBuilds: false, // Cambiado a false para mejor debugging
+    ignoreDuringBuilds: false,
   },
   
-  // Configuración de compilación ESTABLE
+  // Configuración de compilación
   swcMinify: true,
-  reactStrictMode: true, // Activado para mejor debugging
+  reactStrictMode: true,
   
   // Configuración de páginas
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
-  
-  // ✅ SIN configuración de webpack personalizada que cause conflictos
-  // webpack: (config, { dev, isServer }) => {
-  //   return config
-  // },
   
   // Configuración de redirects
   async redirects() {

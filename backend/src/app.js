@@ -25,6 +25,9 @@ app.use(helmet({
 }));
 
 // CORS LIMPIO Y PERMISIVO PARA DESARROLLO
+// CORS ACTUALIZADO PARA RAILWAY
+// Busca esta sección en tu archivo app.js y REEMPLÁZALA:
+
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 CORS Request from origin:', origin);
@@ -49,9 +52,21 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // En producción, permitir dominios de Railway
+    if (origin && origin.includes('.railway.app')) {
+      console.log('✅ CORS: Railway domain permitido -', origin);
+      return callback(null, true);
+    }
+    
     // Verificar origen exacto
     if (allowedOrigins.includes(origin)) {
       console.log('✅ CORS: Origin permitido -', origin);
+      return callback(null, true);
+    }
+    
+    // TEMPORAL: En producción permitir todo para debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.log('🔓 CORS: Producción - permitiendo temporalmente', origin);
       return callback(null, true);
     }
     
@@ -69,7 +84,6 @@ app.use(cors({
     'User-Agent',
     'Cache-Control',
     'X-Client-Info'
-    // ✅ SIN ngrok-skip-browser-warning
   ],
   exposedHeaders: [
     'Content-Length',

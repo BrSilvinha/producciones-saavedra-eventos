@@ -1,0 +1,28 @@
+{
+  "name": "producciones-saavedra",
+  "version": "1.0.0",
+  "description": "Sistema de Gestión de Eventos con QR",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "postinstall": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "migrate": "cd backend && npm run db:migrate"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
+  "keywords": [
+    "eventos",
+    "qr",
+    "tickets",
+    "producciones-saavedra"
+  ],
+  "author": "Producciones Saavedra",
+  "license": "MIT"
+}

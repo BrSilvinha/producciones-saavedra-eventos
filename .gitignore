@@ -19,3 +19,17 @@ dist/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Railway environment variables (no subir)
+.env.railway
+
+# Railway specific
+.railway/
+
+# Additional build outputs
+.next/
+.vercel/
+
+# Production environment files
+.env.production
+.env.production.local
