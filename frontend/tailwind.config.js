@@ -112,9 +112,6 @@ module.exports = {
     },
   },
   plugins: [
-    require('@tailwindcss/forms')({
-      strategy: 'class',
-    }),
-    require('@tailwindcss/typography'),
+    // ✅ PLUGINS SIMPLIFICADOS - Sin dependencias externas problemáticas
   ],
 }

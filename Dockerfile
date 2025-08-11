@@ -1,4 +1,4 @@
-# ✅ DOCKERFILE UNIFICADO PARA RAILWAY
+# ✅ DOCKERFILE CORREGIDO PARA RAILWAY
 FROM node:18-alpine AS base
 
 # Instalar dependencias del sistema
@@ -16,20 +16,20 @@ COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 
 # ============================================
-# STAGE 1: Instalar dependencias
+# STAGE 1: Instalar todas las dependencias
 # ============================================
 FROM base AS deps
 
 # Instalar dependencias raíz
-RUN npm ci --only=production --ignore-scripts
+RUN npm ci --ignore-scripts
 
-# Instalar dependencias del backend
+# Instalar dependencias del backend (solo producción)
 WORKDIR /app/backend
 RUN npm ci --only=production --ignore-scripts
 
-# Instalar dependencias del frontend
+# Instalar TODAS las dependencias del frontend (incluye devDependencies para build)
 WORKDIR /app/frontend
-RUN npm ci --only=production --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # ============================================
 # STAGE 2: Build del frontend
@@ -38,19 +38,34 @@ FROM base AS frontend-builder
 
 WORKDIR /app
 
-# Copiar dependencias ya instaladas
+# Copiar dependencias ya instaladas (TODAS las dependencias del frontend)
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 
+# Copiar archivos de configuración del frontend
+COPY frontend/package*.json ./frontend/
+COPY frontend/tailwind.config.js ./frontend/
+COPY frontend/postcss.config.js ./frontend/
+COPY frontend/next.config.js ./frontend/
+COPY frontend/tsconfig.json ./frontend/
+COPY frontend/.eslintrc.json ./frontend/
+COPY frontend/.prettierrc ./frontend/
+
 # Copiar código fuente del frontend
-COPY frontend/ ./frontend/
+COPY frontend/src/ ./frontend/src/
+COPY frontend/public/ ./frontend/public/
 
 # Variables de entorno para el build
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build del frontend
+# Debug: Verificar que las dependencias estén instaladas
 WORKDIR /app/frontend
+RUN echo "📦 Verificando dependencias de Tailwind..." && \
+    ls -la node_modules/@tailwindcss/ || echo "❌ @tailwindcss no encontrado" && \
+    npm list @tailwindcss/forms || echo "❌ @tailwindcss/forms no encontrado"
+
+# Build del frontend
 RUN npm run build
 
 # ============================================
@@ -73,7 +88,7 @@ RUN adduser --system --uid 1001 nodejs
 
 WORKDIR /app
 
-# Copiar dependencias de producción
+# Copiar dependencias de producción del backend
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/backend/node_modules ./backend/node_modules
 
