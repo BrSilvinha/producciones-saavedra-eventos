@@ -5,17 +5,18 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "echo 'Backend no necesita build'",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo 'Backend no necesita build - usando Node.js directo'",
+    "lint": "echo 'Lint no configurado aún'",
+    "test": "echo 'Tests no configurados aún'",
     "db:create": "sequelize-cli db:create",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
     "db:reset": "sequelize-cli db:drop && sequelize-cli db:create && sequelize-cli db:migrate && sequelize-cli db:seed:all"
   },
-  "keywords": ["eventos", "qr", "tickets", "producciones saavedra"],
+  "keywords": ["eventos", "qr", "tickets", "api", "backend"],
   "author": "Producciones Saavedra",
   "license": "ISC",
-  "description": "Sistema de gestión de eventos con códigos QR",
+  "description": "Backend API para sistema de gestión de eventos",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"

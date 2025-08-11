@@ -1,14 +1,23 @@
+# ✅ NIXPACKS ACTUALIZADO PARA MONOREPO (OPCIONAL)
 [variables]
 NODE_ENV = "production"
+PORT = "5000"
 
 [phases.setup]
-nixPkgs = ["nodejs_18"]
+nixPkgs = ["nodejs_18", "python3", "gcc"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = [
+  "npm ci --only=production",
+  "cd backend && npm ci --only=production", 
+  "cd frontend && npm ci --only=production"
+]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "cd frontend && npm run build",
+  "echo 'Backend no necesita build'"
+]
 
 [start]
-cmd = "npm start"
+cmd = "node backend/src/server.js"

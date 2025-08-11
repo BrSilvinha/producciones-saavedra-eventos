@@ -1,7 +1,7 @@
 {
-  "name": "producciones-saavedra-frontend",
+  "name": "frontend",
   "version": "1.0.0",
-  "description": "Sistema de Gestión de Eventos - Frontend",
+  "description": "Frontend para sistema de gestión de eventos",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -57,9 +57,7 @@
     "eventos",
     "qr",
     "tickets",
-    "gestión",
-    "producciones",
-    "saavedra",
+    "frontend",
     "next.js",
     "react",
     "typescript"
