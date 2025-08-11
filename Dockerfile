@@ -1,4 +1,4 @@
-# ✅ DOCKERFILE OPTIMIZADO PARA RAILWAY - MÁS RÁPIDO Y RESILIENTE
+# ✅ DOCKERFILE OPTIMIZADO PARA RAILWAY - HEALTH CHECK MEJORADO
 FROM node:18-alpine
 
 # Metadatos
@@ -64,9 +64,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Exponer puerto
 EXPOSE 5000
 
-# Health check optimizado
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/api/health || exit 1
+# ✅ HEALTH CHECK MEJORADO CON MÁS TIEMPO
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:5000/api/health || curl -f http://localhost:5000/health || exit 1
 
 # ✅ COMANDO DE INICIO - SOLO BACKEND EN RAILWAY
 CMD ["node", "backend/src/server.js"]

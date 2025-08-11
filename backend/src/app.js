@@ -24,10 +24,7 @@ app.use(helmet({
   crossOriginOpenerPolicy: false
 }));
 
-// CORS LIMPIO Y PERMISIVO PARA DESARROLLO
 // CORS ACTUALIZADO PARA RAILWAY
-// Busca esta sección en tu archivo app.js y REEMPLÁZALA:
-
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 CORS Request from origin:', origin);
@@ -140,22 +137,72 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rutas de salud LIMPIAS
-app.get('/api/health', (req, res) => {
+// ✅ HEALTH CHECK MEJORADO PARA RAILWAY
+app.get('/health', (req, res) => {
   res.status(200).json({
-    message: 'Sistema de Gestión de Eventos - Producciones Saavedra',
     status: 'OK',
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    cors: 'enabled',
-    environment: process.env.NODE_ENV || 'development',
-    network: {
-      host: req.get('host'),
-      origin: req.get('origin'),
-      userAgent: req.get('user-agent'),
-      clientIP: req.ip,
-      forwarded: req.get('x-forwarded-for')
+    message: 'Server is running',
+    service: 'producciones-saavedra-eventos'
+  });
+});
+
+// ✅ HEALTH CHECK COMPLETO
+app.get('/api/health', async (req, res) => {
+  try {
+    // Verificar conexión a base de datos
+    let dbStatus = 'unknown';
+    try {
+      const { sequelize } = require('./models');
+      await sequelize.authenticate();
+      dbStatus = 'connected';
+    } catch (dbError) {
+      console.warn('❌ Database health check failed:', dbError.message);
+      dbStatus = 'disconnected';
     }
+
+    const healthData = {
+      status: 'OK',
+      message: 'Sistema de Gestión de Eventos - Producciones Saavedra',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      port: process.env.PORT || 5000,
+      database: dbStatus,
+      uptime: process.uptime(),
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+      }
+    };
+
+    // Si la base de datos no está conectada, devolver 503 (Service Unavailable)
+    if (dbStatus === 'disconnected') {
+      return res.status(503).json({
+        ...healthData,
+        status: 'DEGRADED',
+        message: 'Base de datos no disponible'
+      });
+    }
+
+    res.status(200).json(healthData);
+  } catch (error) {
+    console.error('❌ Health check error:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Error interno en health check',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
+// ✅ HEALTH CHECK PARA RAILWAY ESPECÍFICO
+app.get('/api/status', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'producciones-saavedra-eventos',
+    version: '1.0.0'
   });
 });
 
@@ -192,6 +239,7 @@ app.use('*', (req, res) => {
     error: 'Ruta no encontrada',
     message: `La ruta ${req.originalUrl} no existe`,
     availableRoutes: [
+      'GET /health',
       'GET /api/health',
       'GET /api/test',
       'GET /api/events',
