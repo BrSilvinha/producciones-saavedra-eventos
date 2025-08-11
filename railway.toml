@@ -1,20 +1,22 @@
-# ✅ CONFIGURACIÓN RAILWAY UNIFICADA (OPCIONAL)
+# ✅ CONFIGURACIÓN RAILWAY OPTIMIZADA
+
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
+numReplicas = 1
 
-# Variables de entorno (configurar en Railway Dashboard)
-# NODE_ENV=production
-# PORT=5000
-# JWT_SECRET=tu_jwt_secret_super_seguro
-# DATABASE_URL=postgresql://usuario:password@host:puerto/database
-
+# Variables de entorno de Railway
 [variables]
 NODE_ENV = "production"
 PORT = "5000"
+NEXT_TELEMETRY_DISABLED = "1"
+
+# Para configurar en el Dashboard de Railway:
+# JWT_SECRET = "tu_jwt_secret_super_seguro_aqui"
+# DATABASE_URL = "postgresql://usuario:password@host:puerto/database"

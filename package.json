@@ -1,37 +1,21 @@
 {
   "name": "producciones-saavedra-monorepo",
   "version": "1.0.0",
-  "description": "Sistema Unificado de Gestión de Eventos con QR - Producciones Saavedra",
+  "description": "Sistema de Gestión de Eventos con QR - Producciones Saavedra",
   "private": true,
-  "workspaces": [
-    "backend",
-    "frontend"
-  ],
   "scripts": {
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
     "backend:dev": "cd backend && npm run dev",
     "frontend:dev": "cd frontend && npm run dev",
-    "build": "npm run backend:build && npm run frontend:build",
-    "backend:build": "cd backend && npm run build",
-    "frontend:build": "cd frontend && npm run build",
-    "start": "npm run backend:start",
-    "backend:start": "cd backend && npm start",
-    "frontend:start": "cd frontend && npm start",
-    "install:all": "npm install && npm run install:backend && npm run install:frontend",
-    "install:backend": "cd backend && npm install",
-    "install:frontend": "cd frontend && npm install",
+    "build": "chmod +x build.sh && ./build.sh",
+    "start": "node backend/src/server.js",
+    "railway:build": "npm run build",
+    "railway:start": "npm run start",
+    "install:backend": "cd backend && npm ci --only=production --silent",
+    "install:frontend": "cd frontend && npm ci --silent",
+    "build:frontend": "cd frontend && npm run build",
     "clean": "rm -rf node_modules backend/node_modules frontend/node_modules",
-    "clean:build": "rm -rf backend/dist frontend/.next",
-    "lint": "npm run backend:lint && npm run frontend:lint",
-    "backend:lint": "cd backend && npm run lint || echo 'Backend lint not configured'",
-    "frontend:lint": "cd frontend && npm run lint",
-    "test": "npm run backend:test && npm run frontend:test",
-    "backend:test": "cd backend && npm test || echo 'Backend tests not configured'",
-    "frontend:test": "cd frontend && npm test || echo 'Frontend tests not configured'",
-    "railway:build": "npm run install:all && npm run build",
-    "railway:start": "npm run start"
+    "health": "curl -f http://localhost:5000/api/health || exit 1"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -45,20 +29,12 @@
   },
   "keywords": [
     "eventos",
-    "qr",
+    "qr", 
     "tickets",
     "gestión",
     "producciones",
-    "saavedra",
-    "monorepo",
-    "next.js",
-    "express",
-    "postgresql"
+    "saavedra"
   ],
   "author": "Producciones Saavedra",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/producciones-saavedra/sistema-eventos"
-  }
+  "license": "MIT"
 }
